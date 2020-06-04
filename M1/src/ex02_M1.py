@@ -1,7 +1,7 @@
 import json
 import sys
-from statistics import variance, mean
 
+import numpy as np
 import requests
 
 USER_NAME = 'test'
@@ -32,9 +32,10 @@ def main():
 
     print("Mean\tVariance")
 
-    for plain_text, leaks in result.items():
-        print("%.2f\t%.2f" % (mean(leaks), variance(leaks)))
-
+    amount_of_samples_per_trace = len(result[list(result.keys())[0]])
+    for index in range(amount_of_samples_per_trace):
+        samples = np.array([ result[key][index] for key in result.keys()])
+        print("%.2f\t%.2f" % (samples.mean(axis=0), samples.var(axis=0)))
 
 
 if __name__ == "__main__":
