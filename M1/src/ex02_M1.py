@@ -6,9 +6,9 @@ import requests
 
 USER_NAME = 'test'
 DIFFICULTY = 1
-SERVER_URL = "http://aoi.ise.bgu.ac.il/encrypt?user={user_name}&difficulty={difficulty}/"
+SERVER_URL = "http://aoi.ise.bgu.ac.il/encrypt?user={user_name}&difficulty={difficulty}"
 
-NUMBER_OF_TRACE_TO_DOWNLOAD = 100
+NUMBER_OF_TRACE_TO_DOWNLOAD = 2000
 
 
 def get_trace():
