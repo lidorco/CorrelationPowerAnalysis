@@ -1,13 +1,10 @@
 import json
-
-import numpy
 import numpy as np
+import requests
 
 USER_NAME = 'test'
 DIFFICULTY = 1
-SERVER_URL = "http://aoi.ise.bgu.ac.il/encrypt?user={user_name}&difficulty={difficulty}/"
-
-NUMBER_OF_TRACE_TO_DOWNLOAD = 10000
+VERIFY_URL = "http://aoi.ise.bgu.ac.il/verify?user={user_name}&difficulty={difficulty}&key={key}"
 
 HW = [bin(n).count("1") for n in range(0,256)]
 
@@ -29,15 +26,17 @@ AES_SBOX = [0x63,0x7c,0x77,0x7b,0xf2,0x6b,0x6f,0xc5,0x30,0x01,0x67,0x2b,0xfe,0xd
             0x8c,0xa1,0x89,0x0d,0xbf,0xe6,0x42,0x68,0x41,0x99,0x2d,0x0f,0xb0,0x54,0xbb,0x16]
 
 
-def hamming_weight(x):
-    return bin(x)[2:].count('1')
-
-def hamming_distance(x, y):
-    return hamming_weight(x ^ y)
+def verify(key):
+    response = requests.get(VERIFY_URL.format(user_name=USER_NAME, difficulty=DIFFICULTY, key=key))
+    if response.content == b'0':
+        return False
+    elif response.content == b'1':
+        return True
+    else:
+        raise Exception("verify error")
 
 def pearson_correlation_coefficient(list1, list2):
-    return numpy.corrcoef(list1, list2)[0, 1]
-
+    return np.corrcoef(list1, list2)[0, 1]
 
 
 def get_samples_from_file(filename='.\src\\traces.txt'):
@@ -71,45 +70,61 @@ def aes_xor_and_sbox(plain, key):
     return AES_SBOX[plain ^ key]
 
 
+def get_top_n_max(matrix, n=4):
+    matrix = abs(matrix)
+
+    flat = matrix.flatten()
+    flat.sort()
+
+    for i in range(1, 1 + n):
+        indexes = np.where(matrix == flat[-1 * i])
+        print(f"   {i}th max is {flat[-1 * i]} in row {indexes[0]} and column {indexes[1]}")
+
+    return int(np.where(matrix == flat[-1])[1])
+
 
 def calculate_key():
-    pt, traces = numpy_samples()
+    plain_text, traces = numpy_samples()
 
-    numtraces = np.shape(traces)[0]
-    numpoint = np.shape(traces)[1]
+    number_of_traces = np.shape(traces)[0]
+    samples_in_trace = np.shape(traces)[1]
 
-    key_bestguess = [0] * 16
+    result_key = [0] * 16
 
     for key_index in range(0, 16):
 
         # Calculate hypothesis matrix
-        hypothesis_matrix = np.zeros((numtraces, 256)) # Should contains hypothetical power values
+        hypothesis_matrix = np.zeros((number_of_traces, 256)) # Should contains hypothetical power values
         for key_byte_guess in range(0, 256):
 
-            for trace_index in range(0, numtraces):
-                hypothesis_matrix[trace_index][key_byte_guess] = HW[aes_xor_and_sbox(pt[trace_index][key_index], key_byte_guess)]
+            for trace_index in range(0, number_of_traces):
+                hypothesis_matrix[trace_index][key_byte_guess] = HW[aes_xor_and_sbox(plain_text[trace_index][key_index], key_byte_guess)]
 
-
-        # Calculate currelation values
-        currelation_matrix = np.zeros((numpoint, 256))
+        # Calculate correlation values
+        correlation_matrix = np.zeros((samples_in_trace, 256))
         for key_byte_guess in range(0, 256):
             hypothesis_vector = hypothesis_matrix[:,key_byte_guess]
 
-            for trace_index in range(0, numpoint):
+            for trace_index in range(0, samples_in_trace):
                 trace_column = traces[:, trace_index]
                 correlation = pearson_correlation_coefficient(trace_column, hypothesis_vector)
-                currelation_matrix[trace_index][key_byte_guess] = correlation
-
-        means = abs(np.mean(currelation_matrix, axis=0))
-        print(f"max is {max(means)} in index {np.argmax(means)}")
-
-        pass
+                correlation_matrix[trace_index][key_byte_guess] = correlation
 
 
+        result_key[key_index] = get_top_n_max(correlation_matrix, 6)
+        print(f'key in index {key_index} is {result_key[key_index]}')
 
+
+    print("Key Guess: ")
+    key = ''.join([hex(i)[2:] if len(hex(i)[2:]) == 2 else ('0' + hex(i)[2:]) for i in result_key])
+    print(key)
+
+    if verify(key):
+        print(f"Found key {key} !!!")
+    else:
+        print(f"failed")
 
 
 if __name__ == "__main__":
-    #main()
     calculate_key()
 
