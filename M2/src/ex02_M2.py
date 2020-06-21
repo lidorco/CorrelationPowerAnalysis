@@ -5,6 +5,7 @@ import requests
 USER_NAME = 'test'
 DIFFICULTY = 1
 VERIFY_URL = "http://aoi.ise.bgu.ac.il/verify?user={user_name}&difficulty={difficulty}&key={key}"
+SERVER_URL = "http://aoi.ise.bgu.ac.il/encrypt?user={user_name}&difficulty={difficulty}"
 
 HW = [bin(n).count("1") for n in range(0,256)]
 
@@ -83,9 +84,7 @@ def get_top_n_max(matrix, n=4):
     return int(np.where(matrix == flat[-1])[1])
 
 
-def calculate_key():
-    plain_text, traces = numpy_samples()
-
+def calculate_key(plain_text, traces):
     number_of_traces = np.shape(traces)[0]
     samples_in_trace = np.shape(traces)[1]
 
@@ -121,10 +120,98 @@ def calculate_key():
 
     if verify(key):
         print(f"Found key {key} !!!")
+        pass
     else:
         print(f"failed")
 
+    return result_key
+
+
+def brute_force():
+    from M1.src.ex02_M1 import get_trace
+    amount = 100
+    while True:
+
+        plaintext = []
+        leaks = []
+        current = 0
+        while current < amount:
+            result = get_trace()
+            plaintext.append(result['plaintext'])
+            leaks.append(result['leaks'])
+            current += 1
+
+
+        pt = np.asarray(plaintext)
+        traces = np.asarray(traces)
+
+        calculate_key(pt, traces)
+
+def get_trace():
+    response = requests.get(SERVER_URL.format(user_name=USER_NAME, difficulty=DIFFICULTY))
+    result =  json.loads(response.content)
+
+    plaintext_list = []
+    for i in range(int(len(result['plaintext']) / 2)):
+        plaintext_list.append(eval('0x' + result['plaintext'][i * 2:i * 2 + 2]))
+
+    return plaintext_list, result['leaks']
+
+
+def check_all_keys_options(keys):
+    bytes_per_index = dict()
+
+    for index in range(16):
+        bytes = set()
+        for key in keys:
+            bytes.add(key[index])
+
+        bytes_per_index[index] = dict()
+
+        for byte in list(bytes):
+            count = 0
+            for key in keys:
+                if key[index] == byte:
+                    count += 1
+
+            bytes_per_index[index][byte] = count
+
+    print("keys statistics is ")
+    for index in bytes_per_index.keys():
+        print(f"index {index} values are ")
+        for byte in bytes_per_index[index].keys():
+            print(f"    {byte} appers {bytes_per_index[index][byte]} times")
+
+
+
+def main():
+    plain_texts, traces = numpy_samples()
+
+    keys = []
+    while True:
+        optional_key = calculate_key(plain_texts, traces)
+        keys.append(optional_key)
+
+        k = ''.join([hex(i)[2:] if len(hex(i)[2:]) == 2 else ('0' + hex(i)[2:]) for i in optional_key])
+        if verify(k):
+            print("WORKKKKKKK!!!!")
+            print(k)
+            break
+
+        if len(keys) > 1:
+            check_all_keys_options(keys)
+
+        print("increasing samples:")
+        for _ in range(100):
+            plain_text, trace = get_trace()
+            plain_texts = np.append(plain_texts, [plain_text], axis=0)
+            traces = np.append(traces, [trace], axis=0)
+
+        print(f"data is : plain text is {len(plain_texts)}  traces is {len(traces)}")
+
+
+
 
 if __name__ == "__main__":
-    calculate_key()
+    main()
 
