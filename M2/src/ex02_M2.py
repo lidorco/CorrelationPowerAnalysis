@@ -184,6 +184,19 @@ def check_all_keys_options(keys):
 
 
 
+def save_all(plain_texts, traces):
+    file_name = "good_traces.txt"
+
+    for i in range(len(plain_texts)):
+        line = dict()
+        line['plaintext'] = "".join([hex(x)[2:] if len(hex(x)[2:]) == 2 else '0'+hex(x)[2:] for x in plain_texts[i]])
+        line['leaks'] = list(traces[i])
+        l = json.dumps(line) + '\n'
+        with open(file_name, 'a') as h:
+            h.write(l)
+
+    pass
+
 def main():
     plain_texts, traces = numpy_samples()
 
@@ -196,6 +209,7 @@ def main():
         if verify(k):
             print("WORKKKKKKK!!!!")
             print(k)
+            save_all(plain_texts, traces)
             break
 
         if len(keys) > 1:
