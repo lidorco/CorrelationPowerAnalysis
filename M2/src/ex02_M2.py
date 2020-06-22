@@ -6,6 +6,7 @@ USER_NAME = 'test'
 DIFFICULTY = 1
 VERIFY_URL = "http://aoi.ise.bgu.ac.il/verify?user={user_name}&difficulty={difficulty}&key={key}"
 SERVER_URL = "http://aoi.ise.bgu.ac.il/encrypt?user={user_name}&difficulty={difficulty}"
+DEBUG = False
 
 HW = [bin(n).count("1") for n in range(0,256)]
 
@@ -40,7 +41,7 @@ def pearson_correlation_coefficient(list1, list2):
     return np.corrcoef(list1, list2)[0, 1]
 
 
-def get_samples_from_file(filename='.\src\\traces.txt'):
+def get_samples_from_file(filename='traces.txt'):
     plaintext = []
     traces = []
     with open(filename, 'r') as f:
@@ -79,7 +80,8 @@ def get_top_n_max(matrix, n=4):
 
     for i in range(1, 1 + n):
         indexes = np.where(matrix == flat[-1 * i])
-        print(f"   {i}th max is {flat[-1 * i]} in row {indexes[0]} and column {indexes[1]}")
+        if DEBUG:
+            print(f"   {i}th max is {flat[-1 * i]} in row {indexes[0]} and column {indexes[1]}")
 
     return int(np.where(matrix == flat[-1])[1])
 
@@ -109,43 +111,15 @@ def calculate_key(plain_text, traces):
                 correlation = pearson_correlation_coefficient(trace_column, hypothesis_vector)
                 correlation_matrix[trace_index][key_byte_guess] = correlation
 
+        if DEBUG:
+            result_key[key_index] = get_top_n_max(correlation_matrix, 6)
+            print(f'key in index {key_index} is {result_key[key_index]}')
+        else:
+            result_key[key_index] = get_top_n_max(correlation_matrix, 1)
 
-        result_key[key_index] = get_top_n_max(correlation_matrix, 6)
-        print(f'key in index {key_index} is {result_key[key_index]}')
-
-
-    print("Key Guess: ")
     key = ''.join([hex(i)[2:] if len(hex(i)[2:]) == 2 else ('0' + hex(i)[2:]) for i in result_key])
-    print(key)
+    return key
 
-    if verify(key):
-        print(f"Found key {key} !!!")
-        pass
-    else:
-        print(f"failed")
-
-    return result_key
-
-
-def brute_force():
-    from M1.src.ex02_M1 import get_trace
-    amount = 100
-    while True:
-
-        plaintext = []
-        leaks = []
-        current = 0
-        while current < amount:
-            result = get_trace()
-            plaintext.append(result['plaintext'])
-            leaks.append(result['leaks'])
-            current += 1
-
-
-        pt = np.asarray(plaintext)
-        traces = np.asarray(traces)
-
-        calculate_key(pt, traces)
 
 def get_trace():
     response = requests.get(SERVER_URL.format(user_name=USER_NAME, difficulty=DIFFICULTY))
@@ -158,7 +132,7 @@ def get_trace():
     return plaintext_list, result['leaks']
 
 
-def check_all_keys_options(keys):
+def print_keys_statistics(keys):
     bytes_per_index = dict()
 
     for index in range(16):
@@ -180,22 +154,8 @@ def check_all_keys_options(keys):
     for index in bytes_per_index.keys():
         print(f"index {index} values are ")
         for byte in bytes_per_index[index].keys():
-            print(f"    {byte} appers {bytes_per_index[index][byte]} times")
+            print(f"    {byte} appears {bytes_per_index[index][byte]} times")
 
-
-
-def save_all(plain_texts, traces):
-    file_name = "good_traces.txt"
-
-    for i in range(len(plain_texts)):
-        line = dict()
-        line['plaintext'] = "".join([hex(x)[2:] if len(hex(x)[2:]) == 2 else '0'+hex(x)[2:] for x in plain_texts[i]])
-        line['leaks'] = list(traces[i])
-        l = json.dumps(line) + '\n'
-        with open(file_name, 'a') as h:
-            h.write(l)
-
-    pass
 
 def main():
     plain_texts, traces = numpy_samples()
@@ -205,27 +165,23 @@ def main():
         optional_key = calculate_key(plain_texts, traces)
         keys.append(optional_key)
 
-        k = ''.join([hex(i)[2:] if len(hex(i)[2:]) == 2 else ('0' + hex(i)[2:]) for i in optional_key])
-        if verify(k):
-            print("WORKKKKKKK!!!!")
-            print(k)
-            save_all(plain_texts, traces)
+
+        if verify(optional_key):
+            print(f'{USER_NAME} {optional_key} {DIFFICULTY}')
             break
 
-        if len(keys) > 1:
-            check_all_keys_options(keys)
+        if DEBUG and len(keys) > 1:
+            print_keys_statistics(keys)
 
-        print("increasing samples:")
+        # Increasing samples
         for _ in range(100):
             plain_text, trace = get_trace()
             plain_texts = np.append(plain_texts, [plain_text], axis=0)
             traces = np.append(traces, [trace], axis=0)
 
-        print(f"data is : plain text is {len(plain_texts)}  traces is {len(traces)}")
-
-
+        if DEBUG:
+            print(f"data is : plain text is {len(plain_texts)}  traces is {len(traces)}")
 
 
 if __name__ == "__main__":
     main()
-

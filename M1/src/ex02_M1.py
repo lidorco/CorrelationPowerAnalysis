@@ -8,7 +8,7 @@ USER_NAME = 'test'
 DIFFICULTY = 1
 SERVER_URL = "http://aoi.ise.bgu.ac.il/encrypt?user={user_name}&difficulty={difficulty}"
 
-NUMBER_OF_TRACE_TO_DOWNLOAD = 2000
+NUMBER_OF_TRACE_TO_DOWNLOAD = 1000
 
 
 def get_trace():
